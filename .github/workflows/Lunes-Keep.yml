@@ -12,7 +12,7 @@ jobs:
     name: 执行保活
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write       # 修复 403 权限问题，赋予推送提交权限
       actions: write
     concurrency:
       group: lunes-keepalive
@@ -56,27 +56,26 @@ jobs:
           PROXY_SERVER: ${{ env.PROXY_SERVER }}    # 由 setup_proxy.sh 写入格式:socks5://127.0.0.1:1080
         run: python scripts/Lunes-Keep.py
 
-#      - name: 上传截图
-#        uses: actions/upload-artifact@v4
-#        if: always()
-#        with:
-#          name: screenshots-${{ github.run_number }}
-#          path: output/screenshots/
-#          retention-days: 3
-
- # 更新时间到 time.txt，避免仓库长期无活动导致 schedule 被自动停用
+      # 更新时间到 time.txt，避免仓库长期无活动导致 schedule 被自动停用
       # （60 天无活动自动禁用只针对 public 仓库；private 仓库无此限制）
       - name: 更新时间
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 暂存执行保活步骤可能遗留在工作区的临时文件，防止 pull 冲突
+          git stash --include-untracked || true
+          git pull --rebase origin main || true
+          git stash pop || true
+
+          # 写入并提交时间戳
           echo "$(TZ=Asia/Shanghai date +'%Y-%m-%d %H:%M:%S')" > time.txt
           git add time.txt
+
           if git diff --cached --quiet; then
             echo "No need to commit"
           else
             git commit -m "⏱️ Auto Update by Github Actions: $(TZ=Asia/Shanghai date +'%Y-%m-%d %H:%M:%S')"
-            git pull --rebase origin main || true
             git push origin main
           fi
 
