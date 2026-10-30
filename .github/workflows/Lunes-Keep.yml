@@ -64,6 +64,22 @@ jobs:
 #          path: output/screenshots/
 #          retention-days: 3
 
+ # 更新时间到 time.txt，避免仓库长期无活动导致 schedule 被自动停用
+      # （60 天无活动自动禁用只针对 public 仓库；private 仓库无此限制）
+      - name: 更新时间
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          echo "$(TZ=Asia/Shanghai date +'%Y-%m-%d %H:%M:%S')" > time.txt
+          git add time.txt
+          if git diff --cached --quiet; then
+            echo "No need to commit"
+          else
+            git commit -m "⏱️ Auto Update by Github Actions: $(TZ=Asia/Shanghai date +'%Y-%m-%d %H:%M:%S')"
+            git pull --rebase origin main || true
+            git push origin main
+          fi
+
       - name: 清理旧运行
         uses: Mattraks/delete-workflow-runs@v2
         with:
